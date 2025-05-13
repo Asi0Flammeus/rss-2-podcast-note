@@ -7,7 +7,7 @@ import anthropic
 from dotenv import load_dotenv
 from dateutil import parser
 import time
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 import re
 
 # Load environment variables
@@ -84,6 +84,7 @@ class RSSPodcastNoteGenerator:
                     continue
                 
                 if pub_date >= cutoff_date:
+                    # Add source information to the entry
                     filtered_entries.append(entry)
             except Exception as e:
                 print(f"Error parsing date for entry: {e}")
@@ -97,11 +98,12 @@ class RSSPodcastNoteGenerator:
             return "No entries found for the selected time period."
         
         # Prepare content for Claude
-        content = "Here are recent articles from an RSS feed:\n\n"
+        content = "Here are recent articles from RSS feeds:\n\n"
         
         for i, entry in enumerate(entries[:20]):  # Limit to 20 entries to avoid token limits
             title = entry.get('title', 'No title')
             link = entry.get('link', 'No link')
+            source = entry.get('source_name', 'Unknown source')
             
             # Try to get summary or content
             summary = ""
@@ -125,6 +127,7 @@ class RSSPodcastNoteGenerator:
             
             content += f"Article {i+1}:\n"
             content += f"Title: {title}\n"
+            content += f"Source: {source}\n"
             content += f"Link: {link}\n"
             content += f"Published: {published}\n"
             content += f"Summary: {summary[:500]}...\n\n"  # Limit summary length
@@ -140,7 +143,7 @@ For each topic:
 1. Create a catchy title
 2. Write a brief summary (2-3 sentences)
 3. Include key points for discussion (3-5 bullet points)
-4. Mention relevant articles from the list
+4. Mention relevant articles from the list (include the source name)
 
 Here are the articles:
 {content}
@@ -156,7 +159,7 @@ Key points:
 - [Point 2]
 - [Point 3]
 
-Related articles: [Article url]
+Related articles: [Article numbers] from [Source names]
 
 ## Topic 2: [Catchy Title]
 ...and so on
@@ -177,35 +180,64 @@ Related articles: [Article url]
             print(f"Error generating program notes: {e}")
             return "Failed to generate program notes. Please try again."
 
+    def sort_feeds(self, feeds: Dict[str, str], sort_option: int) -> List[Tuple[str, str]]:
+        """Sort feeds based on user selection."""
+        feed_items = list(feeds.items())
+        
+        if sort_option == 1:  # Alphabetical (A-Z)
+            return sorted(feed_items, key=lambda x: x[0])
+        elif sort_option == 2:  # Alphabetical (Z-A)
+            return sorted(feed_items, key=lambda x: x[0], reverse=True)
+        else:
+            return feed_items  # Default order (as in JSON)
+
     def run(self):
         """Main execution flow."""
-        # Display available RSS feeds
-        print("\n=== Available RSS Feeds ===")
-        feed_names = list(self.rss_feeds.keys())
-        for i, name in enumerate(feed_names):
-            print(f"{i+1}. {name}")
+        # Sort feeds
+        print("\n=== Sort RSS Feeds ===")
+        print("1. Alphabetical (A-Z)")
+        print("2. Alphabetical (Z-A)")
+        print("3. Default order (as in JSON)")
         
-        # Get user selection for RSS feed
         while True:
             try:
-                feed_choice = int(input("\nSelect a feed (number): ")) - 1
-                if 0 <= feed_choice < len(feed_names):
-                    selected_feed_name = feed_names[feed_choice]
-                    selected_feed_url = self.rss_feeds[selected_feed_name]
+                sort_option = int(input("\nSelect sorting option (number): "))
+                if 1 <= sort_option <= 3:
                     break
                 else:
                     print("Invalid selection. Please try again.")
             except ValueError:
                 print("Please enter a number.")
         
-        print(f"\nFetching {selected_feed_name} feed...")
-        entries = self.fetch_rss_feed(selected_feed_url)
+        sorted_feeds = self.sort_feeds(self.rss_feeds, sort_option)
         
-        if not entries:
-            print("No entries found in the feed. Exiting.")
-            return
-            
-        print(f"Found {len(entries)} entries in the feed.")
+        # Display available RSS feeds
+        print("\n=== Available RSS Feeds ===")
+        for i, (name, url) in enumerate(sorted_feeds):
+            print(f"{i+1}. {name}")
+        
+        # Get user selection for multiple RSS feeds
+        print("\nSelect feeds (comma-separated numbers, e.g., 1,3,5): ")
+        selected_indices = []
+        
+        while not selected_indices:
+            try:
+                selections = input().strip()
+                selected_indices = [int(idx.strip()) - 1 for idx in selections.split(',')]
+                
+                # Validate selections
+                if any(idx < 0 or idx >= len(sorted_feeds) for idx in selected_indices):
+                    print("Invalid selection. Please try again.")
+                    selected_indices = []
+                    continue
+                
+                if not selected_indices:
+                    print("Please select at least one feed.")
+            except ValueError:
+                print("Invalid input. Please enter comma-separated numbers.")
+                selected_indices = []
+        
+        selected_feeds = [sorted_feeds[idx] for idx in selected_indices]
         
         # Get time period selection
         print("\n=== Select Time Period ===")
@@ -225,13 +257,31 @@ Related articles: [Article url]
             except ValueError:
                 print("Please enter a number.")
         
-        # Filter entries by date
-        filtered_entries = self.filter_entries_by_date(entries, weeks_ago)
-        print(f"\nFound {len(filtered_entries)} entries from the past {weeks_ago} week(s).")
+        # Fetch and combine entries from all selected feeds
+        all_entries = []
+        for feed_name, feed_url in selected_feeds:
+            print(f"\nFetching {feed_name} feed...")
+            entries = self.fetch_rss_feed(feed_url)
+            
+            if entries:
+                # Add source information to each entry
+                for entry in entries:
+                    entry['source_name'] = feed_name
+                
+                filtered_entries = self.filter_entries_by_date(entries, weeks_ago)
+                print(f"Found {len(filtered_entries)} entries from {feed_name} for the past {weeks_ago} week(s).")
+                all_entries.extend(filtered_entries)
+            else:
+                print(f"No entries found in {feed_name}.")
         
-        if not filtered_entries:
-            print("No entries found for the selected time period. Exiting.")
+        if not all_entries:
+            print("No entries found for the selected time period and feeds. Exiting.")
             return
+            
+        # Sort combined entries by date (newest first)
+        all_entries.sort(key=lambda entry: parser.parse(entry.get('published', entry.get('updated', '1970-01-01'))), reverse=True)
+        
+        print(f"\nTotal entries from all selected feeds: {len(all_entries)}")
         
         # Get number of topics
         while True:
@@ -256,16 +306,23 @@ Related articles: [Article url]
                 print("Please enter a number.")
         
         print("\nGenerating podcast program notes...")
-        program_notes = self.generate_program_notes(filtered_entries, num_topics, tech_level)
+        program_notes = self.generate_program_notes(all_entries, num_topics, tech_level)
         
         # Display and save results
         print("\n=== Podcast Program Notes ===\n")
         print(program_notes)
         
-        # Save to file in the output directory
+        # Create a descriptive filename
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        safe_feed_name = selected_feed_name.replace(' ', '_').replace('/', '_').replace('\\', '_')
-        filename = f"{safe_feed_name}_{timestamp}.md"
+        
+        # Include feed names in filename (limited to first 2 for brevity)
+        feed_name_part = "_".join([name.replace(' ', '_').replace('/', '_').replace('\\', '_')[:10] 
+                                  for name, _ in selected_feeds[:2]])
+        
+        if len(selected_feeds) > 2:
+            feed_name_part += f"_and_{len(selected_feeds)-2}_more"
+            
+        filename = f"{feed_name_part}_{timestamp}.md"
         filepath = os.path.join(self.output_dir, filename)
         
         with open(filepath, "w", encoding="utf-8") as f:
@@ -277,3 +334,4 @@ if __name__ == "__main__":
     print("=== RSS Podcast Note Generator ===")
     generator = RSSPodcastNoteGenerator()
     generator.run()
+
