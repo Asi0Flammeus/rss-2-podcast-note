@@ -159,7 +159,7 @@ Key points:
 - [Point 2]
 - [Point 3]
 
-Related articles: [Article numbers] from [Source names]
+Related articles: [Article url] 
 
 ## Topic 2: [Catchy Title]
 ...and so on
@@ -315,14 +315,7 @@ Related articles: [Article numbers] from [Source names]
         # Create a descriptive filename
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         
-        # Include feed names in filename (limited to first 2 for brevity)
-        feed_name_part = "_".join([name.replace(' ', '_').replace('/', '_').replace('\\', '_')[:10] 
-                                  for name, _ in selected_feeds[:2]])
-        
-        if len(selected_feeds) > 2:
-            feed_name_part += f"_and_{len(selected_feeds)-2}_more"
-            
-        filename = f"{feed_name_part}_{timestamp}.md"
+        filename = f"{timestamp}_podcast_notes.md"
         filepath = os.path.join(self.output_dir, filename)
         
         with open(filepath, "w", encoding="utf-8") as f:
