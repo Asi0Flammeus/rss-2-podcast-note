@@ -1,0 +1,23 @@
+{
+  "@lightcoin": "https://lightco.in/feed/",
+  "6102bitcoin": "https://6102bitcoin.com/index.xml",
+  "Athena Alpha": "https://www.athena-alpha.com/feed/",
+  "b10c Blog": "https://b10c.me/feed.xml",
+  "Beautyon on Medium": "https://medium.com/feed/@beautyon_",
+  "Bitcoiner.Guide": "https://bitcoiner.guide/feed.xml",
+  "Bitcoin Core": "https://bitcoincore.org/en/announcements.xml",
+  "Bitcoin Optech": "https://bitcoinops.org/feed.xml",
+  "BitMex Research": "https://siftrss.com/f/o8vwGrrx3o5",
+  "Blockstream": "https://blog.blockstream.com/rss/",
+  "BTB Blog": "https://www.econoalchemist.com/blog-feed.xml",
+  "Clark Moody Bitcoin": "https://bitcoin.clarkmoody.com/rss",
+  "Cypherpunk Cogitations": "https://blog.lopp.net/rss/",
+  "dergigi.com": "https://dergigi.com//feed",
+  "Foundation": "https://foundationdevices.com/feed/",
+  "Lyn Alden": "https://www.lynalden.com/feed/",
+  "Ministry of Nodes": "https://www.ministryofnodes.com.au/rss.xml",
+  "NoBSBitcoin Weekly Digest": "https://nobsbitcoin.com/tag/weekly-digest/rss/?ref=nobsbitcoin.com",
+  "Stacker News": "https://stacker.news/rss",
+  "ODELL": "https://www.discreetlog.com/rss/",
+  "On a Path, Diverted": "https://diverter.hostyourown.tools/rss/"
+}
